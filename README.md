@@ -1,2 +1,2 @@
 # swordfish
-It's a lightweight python machine learning framework with higher efficient way to clean data and more advanced tuning algorithms.
+Swordfish is a lightweight python machine learning framework with higher efficient approaches to clean data and more advanced tuning algorithms.
