@@ -95,7 +95,7 @@ class SimulatedAnnealingSearch(object):
     """
 
     def __init__(self, model_train_func, init_params: dict, params_chg_steps: dict, param_limitations: dict, eval_func,
-                 bigger_limitation=0., init_t=5., end_t=0.01, rate=0.95, random_limitation_val=0.6, random_seed=None,
+                 bigger_limitation=0., init_t=2., end_t=0.01, rate=0.95, random_limitation_val=0.6, random_seed=None,
                  max_iter=None, verbose=True):
         assert callable(model_train_func)
         assert callable(eval_func)
@@ -127,6 +127,8 @@ class SimulatedAnnealingSearch(object):
         self._last_score = None
         self._params_history = []
         self._score_history = []
+        self._uphill_history = []
+        self._force_reset = False
         self.best_score_ = -np.inf
         self.best_model_ = None
         self.best_params_ = None
@@ -138,7 +140,7 @@ class SimulatedAnnealingSearch(object):
         for k in self._update_params_keys:
             step = self._params_chg_steps[k][0]
             ops = self._params_chg_steps[k][1]
-            if self._params_last_op_idx[k] is not None:
+            if (self._params_last_op_idx[k] is not None) & (not self._force_reset):
                 op_idx = self._params_last_op_idx[k]
             else:
                 op_idx = np.random.choice(np.array(len(ops) + 1))
@@ -162,6 +164,8 @@ class SimulatedAnnealingSearch(object):
         if not self._is_fitted:
             while self._current_t > self._end_t:
                 not_trained = True
+                self._force_reset = False
+                self.iter_times_ += 1
                 for i, s in enumerate(self._params_history):
                     if s == self._current_params:
                         not_trained = False
@@ -182,13 +186,17 @@ class SimulatedAnnealingSearch(object):
                         if np.exp(de / self._current_t) < self._random_limitation_func():
                             break
                         self._reset_params_last_op_idx()
+                if len(self._params_history) > 1:
+                    if score > self._last_score:
+                        uphill = (self._params_history[-2], self._params_history[-1])
+                        self._force_reset = (uphill in self._uphill_history)
+                        self._uphill_history.append(uphill)
                 self._last_score = score
                 if (score > self.best_score_ or self.iter_times_ == 0) and not_trained:
                     self.best_score_ = score
                     self.best_params_ = self._current_params.copy()
                     self.best_model_ = model
                 self._current_t *= self._radio
-                self.iter_times_ += 1
                 if self._verbose:
                     print(f'[{self.iter_times_}]: params: {self._current_params}')
                     print(f'[{self.iter_times_}]: score: {score}')
